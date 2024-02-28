@@ -12,7 +12,7 @@ mod generation;
 pub mod resources;
 mod systems;
 
-pub const CHUNK_SIZE: u32 = 16;
+pub const CHUNK_SIZE: u32 = 128;
 
 pub struct TerrainPlugin;
 
@@ -39,24 +39,13 @@ fn terrain_ui(
         ui.label(format!("Loaded Chunks: {}", terrain.len()));
 
         ui.add(
-            Slider::new(&mut settings.chunks_radius, 1..=32)
+            Slider::new(&mut settings.chunks_radius, 1..=100)
                 .text("Chunk Radius")
                 .step_by(1.0),
         );
 
         if ui
             .add(Checkbox::new(&mut settings.wireframe, "Wireframe"))
-            .changed()
-        {
-            regenerate = true;
-        }
-
-        if ui
-            .add(
-                Slider::new(&mut settings.magic, 0.1..=2.0)
-                    .text("Magic")
-                    .step_by(0.001),
-            )
             .changed()
         {
             regenerate = true;

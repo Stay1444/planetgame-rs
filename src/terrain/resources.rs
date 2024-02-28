@@ -14,8 +14,6 @@ pub struct TerrainGenerationSettings {
     pub frequency: f64,
     pub exponentiation: f64,
     pub height: f64,
-
-    pub magic: f32,
 }
 
 impl FromWorld for TerrainGenerationSettings {
@@ -36,7 +34,6 @@ impl FromWorld for TerrainGenerationSettings {
         });
 
         Self {
-            magic: 1.067,
             material: debug_material,
             wireframe: true,
             chunks_radius: 1,
