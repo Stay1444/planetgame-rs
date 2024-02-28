@@ -5,10 +5,9 @@ use bevy::{
         settings::{RenderCreation, WgpuFeatures, WgpuSettings},
         RenderPlugin,
     },
-    tasks::AsyncComputeTaskPool,
     window::{CursorGrabMode, PrimaryWindow},
 };
-use bevy_egui::{EguiContexts, EguiPlugin};
+use bevy_egui::EguiPlugin;
 use bevy_xpbd_3d::{
     components::RigidBody,
     plugins::{
@@ -17,7 +16,7 @@ use bevy_xpbd_3d::{
     },
 };
 use spectator::{components::SpectatorCamera, SpectatorPlugin};
-use terrain::{components::PendingTerrainChunk, resources::Terrain, TerrainPlugin};
+use terrain::TerrainPlugin;
 
 mod spectator;
 mod terrain;
@@ -41,22 +40,11 @@ fn main() {
         // -- GAME --
         .add_plugins(SpectatorPlugin)
         .add_plugins(TerrainPlugin)
-        .add_systems(Update, ui_example_system)
         .add_systems(Update, start.run_if(run_once()))
         .run();
 }
 
-fn ui_example_system(mut contexts: EguiContexts) {
-    egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
-        ui.label("world");
-    });
-}
-
-fn start(
-    mut window: Query<&mut Window, With<PrimaryWindow>>,
-    mut commands: Commands,
-    mut terrain: ResMut<Terrain>,
-) {
+fn start(mut window: Query<&mut Window, With<PrimaryWindow>>, mut commands: Commands) {
     if let Ok(mut window) = window.get_single_mut() {
         window.cursor.grab_mode = CursorGrabMode::Confined;
         window.cursor.visible = false;
@@ -75,20 +63,6 @@ fn start(
         Collider::default(),
         Sensor,
     ));
-
-    let thread_pool = AsyncComputeTaskPool::get();
-
-    let task = thread_pool.spawn(async move { terrain::generate_mesh() });
-
-    let chunk = commands
-        .spawn((
-            TransformBundle::default(),
-            PendingTerrainChunk(task),
-            VisibilityBundle::default(),
-        ))
-        .id();
-
-    terrain.set_chunk(0, 0, chunk);
 }
 
 fn uv_debug_texture() -> Image {

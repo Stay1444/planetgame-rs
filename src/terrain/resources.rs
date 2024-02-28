@@ -1,10 +1,16 @@
 use bevy::{prelude::*, utils::HashMap};
 
-use super::CHUNK_SIZE;
-
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct TerrainGenerationSettings {
     pub material: Handle<StandardMaterial>,
+    pub chunks_radius: u32,
+    pub seed: u32,
+    pub magnitude: f32,
+    pub scale: f32,
+    pub octaves: usize,
+    pub lacunarity: f64,
+    pub persistence: f64,
+    pub frequency: f64,
 }
 
 impl FromWorld for TerrainGenerationSettings {
@@ -26,6 +32,15 @@ impl FromWorld for TerrainGenerationSettings {
 
         Self {
             material: debug_material,
+            chunks_radius: 1,
+
+            seed: 100,
+            magnitude: 1.0,
+            scale: 1.0,
+            octaves: 1,
+            lacunarity: 2.0,
+            persistence: 0.7,
+            frequency: 0.1,
         }
     }
 }
@@ -52,10 +67,13 @@ impl Terrain {
         self.chunks.remove(&(x, z));
     }
 
-    pub fn get_chunk_global(&self, x: f32, z: f32) -> Option<Entity> {
-        let x = x as i32 / CHUNK_SIZE as i32;
-        let z = z as i32 / CHUNK_SIZE as i32;
+    pub fn chunks(&self) -> Vec<(i32, i32, Entity)> {
+        let mut chunks = Vec::new();
 
-        self.chunks.get(&(x, z)).cloned()
+        for (k, v) in self.chunks.iter() {
+            chunks.push((k.0, k.1, v.clone()));
+        }
+
+        chunks
     }
 }

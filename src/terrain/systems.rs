@@ -1,10 +1,10 @@
 use bevy::{
     pbr::wireframe::Wireframe,
     prelude::*,
-    tasks::{block_on, futures_lite::future},
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool},
 };
 
-use crate::spectator::components::SpectatorCamera;
+use crate::{spectator::components::SpectatorCamera, terrain::generation::ChunkGenerator};
 
 use super::{
     components::{PendingTerrainChunk, TerrainChunk},
@@ -41,13 +41,56 @@ pub fn poll_pending_chunks(
 
 pub fn enqueue_chunks_around_player(
     player: Query<&Transform, With<SpectatorCamera>>,
-    terrain: Res<Terrain>,
+    generation_settings: Res<TerrainGenerationSettings>,
+    mut terrain: ResMut<Terrain>,
+    mut commands: Commands,
 ) {
     let Ok(player) = player.get_single() else {
         return;
     };
 
-    let chunk = terrain.get_chunk_global(player.translation.x, player.translation.z);
+    let chunks = super::generation::chunks_for_radius(
+        generation_settings.chunks_radius as i32,
+        player.translation.x,
+        player.translation.z,
+    );
 
-    dbg!(&chunk);
+    let mut missing = Vec::new();
+
+    for chunk in chunks {
+        if terrain.get_chunk(chunk.0, chunk.1).is_none() {
+            missing.push(chunk);
+        }
+    }
+
+    let thread_pool = AsyncComputeTaskPool::get();
+
+    for chunk in missing {
+        let task = thread_pool.spawn({
+            let chunk = chunk.clone();
+            let settings = generation_settings.clone();
+            async move {
+                let mut generator = ChunkGenerator::new(settings);
+                generator.resolution = 1;
+                generator.position = (chunk.0, chunk.1);
+                generator.generate()
+            }
+        });
+
+        let chunk_pos = super::generation::chunk_to_global_position(chunk.0, chunk.1);
+        println!("Enqueued chunk at {}, {}", chunk.0, chunk.1);
+
+        let entity = commands
+            .spawn((
+                TransformBundle {
+                    local: Transform::from_xyz(chunk_pos.0, 0.0, chunk_pos.1),
+                    ..Default::default()
+                },
+                PendingTerrainChunk(task),
+                VisibilityBundle::default(),
+            ))
+            .id();
+
+        terrain.set_chunk(chunk.0, chunk.1, entity);
+    }
 }

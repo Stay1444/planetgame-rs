@@ -13,7 +13,7 @@ impl Default for SpectatorSettings {
         Self {
             mouse_lock: true,
             sensitivity: 0.00005,
-            speed: 50.0,
+            speed: 150.0,
             controls: Default::default(),
         }
     }
