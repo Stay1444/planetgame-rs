@@ -7,7 +7,7 @@ use bevy::{
 use crate::{spectator::components::SpectatorCamera, terrain::generation::ChunkGenerator};
 
 use super::{
-    components::{PendingTerrainChunk, TerrainChunk},
+    components::{DeletedTerrainChunk, PendingTerrainChunk, TerrainChunk},
     resources::{Terrain, TerrainGenerationSettings},
 };
 
@@ -20,19 +20,21 @@ pub fn poll_pending_chunks(
     for (entity, mut task) in tasks.iter_mut() {
         if let Some(mesh) = block_on(future::poll_once(&mut task.0)) {
             let mesh = meshes.add(mesh);
+
             commands.entity(entity).remove::<PendingTerrainChunk>();
             commands.entity(entity).insert(TerrainChunk(mesh.clone()));
 
             let child = commands
-                .spawn((
-                    PbrBundle {
-                        mesh,
-                        material: settings.material.clone(),
-                        ..Default::default()
-                    },
-                    Wireframe,
-                ))
+                .spawn((PbrBundle {
+                    mesh,
+                    material: settings.material.clone(),
+                    ..Default::default()
+                },))
                 .id();
+
+            if settings.wireframe {
+                commands.entity(child).insert(Wireframe);
+            }
 
             commands.entity(entity).add_child(child);
         }
@@ -61,6 +63,10 @@ pub fn enqueue_chunks_around_player(
         if terrain.get_chunk(chunk.0, chunk.1).is_none() {
             missing.push(chunk);
         }
+    }
+
+    if missing.is_empty() {
+        return;
     }
 
     let thread_pool = AsyncComputeTaskPool::get();
@@ -92,5 +98,22 @@ pub fn enqueue_chunks_around_player(
             .id();
 
         terrain.set_chunk(chunk.0, chunk.1, entity);
+    }
+}
+
+pub fn process_marked_for_deletion(
+    mut terrain: ResMut<Terrain>,
+    chunks: Query<(Entity, &Transform), (With<DeletedTerrainChunk>, Without<PendingTerrainChunk>)>,
+    mut commands: Commands,
+) {
+    for (entity, transform) in &chunks {
+        let position = super::generation::global_to_chunk_position(
+            transform.translation.x,
+            transform.translation.z,
+        );
+
+        terrain.remove_chunk(position.0, position.1);
+
+        commands.entity(entity).despawn_recursive();
     }
 }

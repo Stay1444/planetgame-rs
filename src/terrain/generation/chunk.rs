@@ -29,22 +29,13 @@ impl ChunkGenerator {
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
 
-        let mut noise = noise::Fbm::<SuperSimplex>::new(self.settings.seed);
-        noise.octaves = self.settings.octaves;
-        noise.lacunarity = self.settings.lacunarity;
-        noise.persistence = self.settings.persistence;
-        noise.frequency = self.settings.frequency;
+        let noise = SuperSimplex::new(self.settings.seed);
 
         let position = super::chunk_to_global_position(self.position.0, self.position.1);
 
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,
-            generate_vertices(
-                position,
-                self.settings.magnitude,
-                self.settings.scale,
-                &noise,
-            ),
+            generate_vertices(position, &noise, &self.settings),
         );
 
         mesh.insert_attribute(
@@ -62,22 +53,43 @@ impl ChunkGenerator {
 
 fn generate_vertices<T: NoiseFn<f64, 2>>(
     position: (f32, f32),
-    magnitude: f32,
-    scale: f32,
     noise: &T,
+    settings: &TerrainGenerationSettings,
 ) -> Vec<[f32; 3]> {
     let mut vertices = Vec::new();
+
     for i in 0..CHUNK_SIZE {
         for j in 0..CHUNK_SIZE {
-            let x = i as f32 * 1.0;
-            let z = j as f32 * 1.0;
+            let x = i as f32;
+            let z = j as f32;
 
-            let noise_x = (x + position.0) / scale;
-            let noise_z = (z + position.1) / scale;
+            let nx = ((position.0 + x) / settings.scale) as f64;
+            let nz = ((position.1 + z) / settings.scale) as f64;
 
-            let y = noise.get([noise_x as f64, noise_z as f64]) as f32 * magnitude;
+            let g = 2.0f64.powf(-settings.persistence);
+            let mut total = 0f64;
+            let mut normalization = 0f64;
+            let mut amplitude = settings.amplitude;
+            let mut frequency = settings.frequency;
 
-            vertices.push([x, y, z]);
+            for _ in 0..settings.octaves {
+                let noise_v = noise.get([nx * frequency * 0.5 + 0.5, nz * frequency * 0.5 + 0.5]);
+
+                total += noise_v * amplitude;
+                normalization += amplitude;
+                amplitude *= g;
+                frequency *= settings.lacunarity;
+            }
+
+            total /= normalization;
+
+            let mut y = total.powf(settings.exponentiation) * settings.height;
+
+            if y.is_nan() {
+                y = 0.0;
+            }
+
+            vertices.push([x, y as f32, z]);
         }
     }
 

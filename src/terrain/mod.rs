@@ -1,8 +1,11 @@
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
-use egui::{DragValue, FontId, Grid, RichText, Slider};
+use egui::{Checkbox, FontId, RichText, Slider};
 
-use self::resources::{Terrain, TerrainGenerationSettings};
+use self::{
+    components::DeletedTerrainChunk,
+    resources::{Terrain, TerrainGenerationSettings},
+};
 
 pub mod components;
 mod generation;
@@ -19,6 +22,7 @@ impl Plugin for TerrainPlugin {
         app.init_resource::<resources::Terrain>();
         app.add_systems(Update, systems::poll_pending_chunks);
         app.add_systems(Update, systems::enqueue_chunks_around_player);
+        app.add_systems(Update, systems::process_marked_for_deletion);
 
         app.add_systems(Update, terrain_ui);
     }
@@ -26,7 +30,7 @@ impl Plugin for TerrainPlugin {
 
 fn terrain_ui(
     mut contexts: EguiContexts,
-    mut terrain: ResMut<Terrain>,
+    terrain: Res<Terrain>,
     mut settings: ResMut<TerrainGenerationSettings>,
     mut commands: Commands,
 ) {
@@ -40,51 +44,119 @@ fn terrain_ui(
                 .step_by(1.0),
         );
 
+        if ui
+            .add(Checkbox::new(&mut settings.wireframe, "Wireframe"))
+            .changed()
+        {
+            regenerate = true;
+        }
+
         ui.separator();
         ui.label(RichText::new("Generation").font(FontId::proportional(20.0)));
-        Grid::new("generation-grid")
-            .num_columns(2)
-            .spacing([40.0, 4.0])
-            .striped(true)
-            .show(ui, |ui| {
-                ui.label("Seed");
 
-                if ui.add(DragValue::new(&mut settings.seed)).changed() {
-                    regenerate = true;
-                }
+        if ui
+            .add(
+                Slider::new(&mut settings.seed, 0u32..=u32::MAX / 2)
+                    .text("Seed")
+                    .step_by(1.0),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
 
-                ui.end_row();
+        if ui
+            .add(
+                Slider::new(&mut settings.amplitude, 0.01..=32.0)
+                    .text("Amplitude")
+                    .step_by(0.05),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
 
-                ui.label("Magnitude");
-                ui.add(DragValue::new(&mut settings.magnitude).speed(0.05));
-                ui.end_row();
+        if ui
+            .add(
+                Slider::new(&mut settings.scale, 0.01..=200.0)
+                    .text("Scale")
+                    .step_by(0.05),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
 
-                ui.label("Scale");
-                ui.add(DragValue::new(&mut settings.scale).speed(0.05));
-                ui.end_row();
+        if ui
+            .add(
+                Slider::new(&mut settings.octaves, 0..=5)
+                    .text("Octaves")
+                    .step_by(1.0),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
 
-                ui.label("Octaves");
-                ui.add(DragValue::new(&mut settings.octaves).speed(1.0));
-                ui.end_row();
+        if ui
+            .add(
+                Slider::new(&mut settings.lacunarity, 0.0..=6.0)
+                    .text("Lacunarity")
+                    .step_by(0.05),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
 
-                ui.label("Lacunarity");
-                ui.add(DragValue::new(&mut settings.lacunarity).speed(0.051));
-                ui.end_row();
+        if ui
+            .add(
+                Slider::new(&mut settings.persistence, 0.0..=10.0)
+                    .text("Persistence")
+                    .step_by(0.05),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
 
-                ui.label("Persistence");
-                ui.add(DragValue::new(&mut settings.persistence).speed(0.05));
-                ui.end_row();
+        if ui
+            .add(
+                Slider::new(&mut settings.frequency, 0.01..=10.0)
+                    .text("Frequency")
+                    .step_by(0.05),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
 
-                ui.label("Frequency");
-                ui.add(DragValue::new(&mut settings.frequency).speed(0.05));
-            });
+        if ui
+            .add(
+                Slider::new(&mut settings.exponentiation, 0.01..=10.0)
+                    .text("Exponentiation")
+                    .step_by(0.05),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
+
+        if ui
+            .add(
+                Slider::new(&mut settings.height, 0.01..=500.0)
+                    .text("Height")
+                    .step_by(0.05),
+            )
+            .changed()
+        {
+            regenerate = true;
+        }
     });
 
     if regenerate {
         for chunk in terrain.chunks() {
-            commands.entity(chunk.2).despawn();
-
-            terrain.remove_chunk(chunk.0, chunk.1);
+            commands.entity(chunk.2).insert(DeletedTerrainChunk);
         }
     }
 }

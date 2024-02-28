@@ -26,3 +26,10 @@ pub fn chunk_to_global_position(x: i32, z: i32) -> (f32, f32) {
     let z = (z * CHUNK_SIZE as i32) as f32 + CHUNK_SIZE as f32 / 2.0;
     (x, z)
 }
+
+pub fn global_to_chunk_position(x: f32, z: f32) -> (i32, i32) {
+    let cx = (x / CHUNK_SIZE as f32).floor() as i32;
+    let cz = (z / CHUNK_SIZE as f32).floor() as i32;
+
+    (cx, cz)
+}
