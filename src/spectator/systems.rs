@@ -1,4 +1,8 @@
-use bevy::{input::mouse::MouseMotion, prelude::*, window::PrimaryWindow};
+use bevy::{
+    input::mouse::MouseMotion,
+    prelude::*,
+    window::{CursorGrabMode, PrimaryWindow},
+};
 use bevy_xpbd_3d::components::LinearVelocity;
 
 use super::{components::SpectatorCamera, resources::SpectatorSettings};
@@ -34,12 +38,38 @@ pub fn handle_movement(
     }
 }
 
+pub fn handle_mouse_lock(
+    mut settings: ResMut<SpectatorSettings>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut window: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    if keys.just_pressed(settings.controls.toggle_mouse_lock) {
+        settings.mouse_lock = !settings.mouse_lock;
+    } else {
+        return;
+    }
+
+    if let Ok(mut window) = window.get_single_mut() {
+        if !settings.mouse_lock {
+            window.cursor.grab_mode = CursorGrabMode::None;
+            window.cursor.visible = true;
+        } else {
+            window.cursor.grab_mode = CursorGrabMode::Confined;
+            window.cursor.visible = false;
+        }
+    }
+}
+
 pub fn handle_look(
     mut cameras: Query<&mut Transform, With<SpectatorCamera>>,
     mut motion: EventReader<MouseMotion>,
     settings: Res<SpectatorSettings>,
     window: Query<&Window, With<PrimaryWindow>>,
 ) {
+    if !settings.mouse_lock {
+        return;
+    }
+
     let Ok(window) = window.get_single() else {
         return;
     };

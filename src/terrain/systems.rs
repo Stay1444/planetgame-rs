@@ -4,9 +4,11 @@ use bevy::{
     tasks::{block_on, futures_lite::future},
 };
 
+use crate::spectator::components::SpectatorCamera;
+
 use super::{
     components::{PendingTerrainChunk, TerrainChunk},
-    resources::TerrainGenerationSettings,
+    resources::{Terrain, TerrainGenerationSettings},
 };
 
 pub fn poll_pending_chunks(
@@ -35,4 +37,17 @@ pub fn poll_pending_chunks(
             commands.entity(entity).add_child(child);
         }
     }
+}
+
+pub fn enqueue_chunks_around_player(
+    player: Query<&Transform, With<SpectatorCamera>>,
+    terrain: Res<Terrain>,
+) {
+    let Ok(player) = player.get_single() else {
+        return;
+    };
+
+    let chunk = terrain.get_chunk_global(player.translation.x, player.translation.z);
+
+    dbg!(&chunk);
 }

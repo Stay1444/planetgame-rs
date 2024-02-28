@@ -5,11 +5,13 @@ pub struct SpectatorSettings {
     pub sensitivity: f32,
     pub speed: f32,
     pub controls: SpectatorControls,
+    pub mouse_lock: bool,
 }
 
 impl Default for SpectatorSettings {
     fn default() -> Self {
         Self {
+            mouse_lock: true,
             sensitivity: 0.00005,
             speed: 50.0,
             controls: Default::default(),
@@ -18,6 +20,8 @@ impl Default for SpectatorSettings {
 }
 
 pub struct SpectatorControls {
+    pub toggle_mouse_lock: KeyCode,
+
     pub forward: KeyCode,
     pub back: KeyCode,
 
@@ -34,6 +38,8 @@ pub struct SpectatorControls {
 impl Default for SpectatorControls {
     fn default() -> Self {
         Self {
+            toggle_mouse_lock: KeyCode::Escape,
+
             forward: KeyCode::KeyW,
             back: KeyCode::KeyS,
 

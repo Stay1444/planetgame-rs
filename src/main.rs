@@ -1,5 +1,5 @@
 use bevy::{
-    pbr::wireframe::{Wireframe, WireframePlugin},
+    pbr::wireframe::WireframePlugin,
     prelude::*,
     render::{
         settings::{RenderCreation, WgpuFeatures, WgpuSettings},
@@ -17,7 +17,7 @@ use bevy_xpbd_3d::{
     },
 };
 use spectator::{components::SpectatorCamera, SpectatorPlugin};
-use terrain::components::PendingTerrainChunk;
+use terrain::{components::PendingTerrainChunk, resources::Terrain, TerrainPlugin};
 
 mod spectator;
 mod terrain;
@@ -40,6 +40,7 @@ fn main() {
         .add_plugins(EguiPlugin)
         // -- GAME --
         .add_plugins(SpectatorPlugin)
+        .add_plugins(TerrainPlugin)
         .add_systems(Update, ui_example_system)
         .add_systems(Update, start.run_if(run_once()))
         .run();
@@ -54,9 +55,7 @@ fn ui_example_system(mut contexts: EguiContexts) {
 fn start(
     mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
+    mut terrain: ResMut<Terrain>,
 ) {
     if let Ok(mut window) = window.get_single_mut() {
         window.cursor.grab_mode = CursorGrabMode::Confined;
@@ -77,32 +76,19 @@ fn start(
         Sensor,
     ));
 
-    let debug_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
-    });
-
-    //let mesh = Rectangle::new(100.0, 100.0).mesh();
-    //
-
     let thread_pool = AsyncComputeTaskPool::get();
 
     let task = thread_pool.spawn(async move { terrain::generate_mesh() });
 
-    commands.spawn((TransformBundle::default(), PendingTerrainChunk(task)));
+    let chunk = commands
+        .spawn((
+            TransformBundle::default(),
+            PendingTerrainChunk(task),
+            VisibilityBundle::default(),
+        ))
+        .id();
 
-    commands.spawn((
-        PbrBundle {
-            mesh: terrain::generate_mesh(&mut meshes),
-            material: debug_material,
-            transform: Transform::from_rotation(Quat::from_rotation_x(
-                -std::f32::consts::FRAC_PI_2,
-            )),
-            visibility: Visibility::Visible,
-            ..Default::default()
-        },
-        Wireframe,
-    ));
+    terrain.set_chunk(0, 0, chunk);
 }
 
 fn uv_debug_texture() -> Image {
