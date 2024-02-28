@@ -60,8 +60,8 @@ fn generate_vertices<T: NoiseFn<f64, 2>>(
 
     for i in 0..CHUNK_SIZE {
         for j in 0..CHUNK_SIZE {
-            let x = i as f32;
-            let z = j as f32;
+            let x = i as f32 * settings.magic;
+            let z = j as f32 * settings.magic;
 
             let nx = ((position.0 + x) / settings.scale) as f64;
             let nz = ((position.1 + z) / settings.scale) as f64;
