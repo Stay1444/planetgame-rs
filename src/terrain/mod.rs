@@ -9,6 +9,7 @@ use self::{
 
 pub mod components;
 mod generation;
+mod quad_tree;
 pub mod resources;
 mod systems;
 
