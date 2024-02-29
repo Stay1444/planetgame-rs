@@ -1,5 +1,5 @@
 use bevy::{
-    pbr::wireframe::WireframePlugin,
+    pbr::{wireframe::WireframePlugin, CascadeShadowConfigBuilder},
     prelude::*,
     render::{
         settings::{RenderCreation, WgpuFeatures, WgpuSettings},
@@ -15,9 +15,11 @@ use bevy_xpbd_3d::{
         PhysicsPlugins,
     },
 };
+use diagnostics::DiagnosticsPlugin;
 use spectator::{components::SpectatorCamera, SpectatorPlugin};
 use terrain::TerrainPlugin;
 
+mod diagnostics;
 mod spectator;
 mod terrain;
 
@@ -40,6 +42,7 @@ fn main() {
         // -- GAME --
         .add_plugins(SpectatorPlugin)
         .add_plugins(TerrainPlugin)
+        .add_plugins(DiagnosticsPlugin)
         .add_systems(Update, start.run_if(run_once()))
         .run();
 }
@@ -50,6 +53,21 @@ fn start(mut window: Query<&mut Window, With<PrimaryWindow>>, mut commands: Comm
         window.cursor.visible = false;
         window.set_maximized(true);
     }
+
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            shadows_enabled: true,
+            ..Default::default()
+        },
+        transform: Transform::from_xyz(500.0, 1000.0, 500.0).looking_at(Vec3::ZERO, Vec3::Y),
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 15.0,
+            maximum_distance: 1000.0,
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    });
 
     commands.spawn((
         Camera3dBundle {

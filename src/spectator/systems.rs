@@ -80,8 +80,9 @@ pub fn handle_look(
     let window_scale = window.height().min(window.width());
 
     for event in motion.read() {
-        pitch_offset += (settings.sensitivity * event.delta.y * window_scale).to_radians();
-        yaw_offset += (settings.sensitivity * event.delta.x * window_scale).to_radians();
+        pitch_offset +=
+            (settings.sensitivity * 0.000001 * event.delta.y * window_scale).to_radians();
+        yaw_offset += (settings.sensitivity * 0.000001 * event.delta.x * window_scale).to_radians();
     }
 
     for mut transform in cameras.iter_mut() {

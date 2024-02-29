@@ -1,5 +1,7 @@
 use bevy::{prelude::*, utils::HashMap};
 
+use super::quad_tree::QuadTree;
+
 #[derive(Resource, Clone)]
 pub struct TerrainGenerationSettings {
     pub material: Handle<StandardMaterial>,
@@ -35,7 +37,7 @@ impl FromWorld for TerrainGenerationSettings {
 
         Self {
             material: debug_material,
-            wireframe: true,
+            wireframe: false,
             chunks_radius: 1,
 
             seed: 100,
@@ -51,12 +53,26 @@ impl FromWorld for TerrainGenerationSettings {
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct Terrain {
     chunks: HashMap<(i32, i32), Entity>,
+    quad_tree: QuadTree,
+}
+
+impl Default for Terrain {
+    fn default() -> Self {
+        Self {
+            chunks: HashMap::new(),
+            quad_tree: QuadTree::new(8, Rect::new(-200.0, -200.0, 400.0, 400.0)),
+        }
+    }
 }
 
 impl Terrain {
+    pub fn quad_tree(&mut self) -> &mut QuadTree {
+        &mut self.quad_tree
+    }
+
     pub fn len(&self) -> usize {
         self.chunks.len()
     }
