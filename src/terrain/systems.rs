@@ -1,21 +1,62 @@
 use bevy::{
     pbr::wireframe::Wireframe,
     prelude::*,
-    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool},
+    tasks::{block_on, futures_lite::future},
 };
 
-use crate::{spectator::components::SpectatorCamera, terrain::generation::ChunkGenerator};
+use crate::{
+    spectator::components::SpectatorCamera,
+    terrain::{lod_tree::LODTree, resources::LODSettings},
+};
 
 use super::{
     components::{DeletedTerrainChunk, PendingTerrainChunk, TerrainChunk},
-    resources::{Terrain, TerrainGenerationSettings},
+    resources::{Terrain, TerrainSettings},
 };
+
+pub fn update_lod_tree(
+    mut terrain: ResMut<Terrain>,
+    player: Query<&Transform, With<SpectatorCamera>>,
+    settings: Res<TerrainSettings>,
+) {
+    let Ok(player) = player.get_single() else {
+        return;
+    };
+
+    terrain.lod_tree.clear();
+
+    fn process(tree: &mut LODTree, player: Vec2, mut layer: usize, settings: &LODSettings) {
+        let distance = f32::max(
+            settings.max + -(layer as f32) * settings.layer_penalty,
+            settings.min,
+        );
+
+        if tree.boundary().center().distance_squared(player) / 100.0 < distance {
+            tree.subdivide();
+        }
+
+        layer += 1;
+
+        if let Some(children) = tree.children_mut() {
+            for child in children.iter_mut() {
+                process(child, player, layer, settings);
+            }
+        }
+    }
+
+    process(
+        &mut terrain.lod_tree,
+        Vec2::new(player.translation.x, player.translation.z),
+        0,
+        &settings.lod,
+    );
+}
 
 pub fn poll_pending_chunks(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut PendingTerrainChunk)>,
     mut meshes: ResMut<Assets<Mesh>>,
-    settings: Res<TerrainGenerationSettings>,
+    settings: Res<TerrainSettings>,
 ) {
     for (entity, mut task) in tasks.iter_mut() {
         if let Some(mesh) = block_on(future::poll_once(&mut task.0)) {
@@ -38,66 +79,6 @@ pub fn poll_pending_chunks(
 
             commands.entity(entity).add_child(child);
         }
-    }
-}
-
-pub fn enqueue_chunks_around_player(
-    player: Query<&Transform, With<SpectatorCamera>>,
-    generation_settings: Res<TerrainGenerationSettings>,
-    mut terrain: ResMut<Terrain>,
-    mut commands: Commands,
-) {
-    let Ok(player) = player.get_single() else {
-        return;
-    };
-
-    let chunks = super::generation::chunks_for_radius(
-        generation_settings.chunks_radius as i32,
-        player.translation.x,
-        player.translation.z,
-    );
-
-    let mut missing = Vec::new();
-
-    for chunk in chunks {
-        if terrain.get_chunk(chunk.0, chunk.1).is_none() {
-            missing.push(chunk);
-        }
-    }
-
-    if missing.is_empty() {
-        return;
-    }
-
-    let thread_pool = AsyncComputeTaskPool::get();
-
-    for chunk in missing {
-        let task = thread_pool.spawn({
-            let chunk = chunk.clone();
-            let settings = generation_settings.clone();
-            async move {
-                let mut generator = ChunkGenerator::new(settings);
-                generator.resolution = 1;
-                generator.position = (chunk.0, chunk.1);
-                generator.generate()
-            }
-        });
-
-        let chunk_pos = super::generation::chunk_to_global_position(chunk.0, chunk.1);
-        println!("Enqueued chunk at {}, {}", chunk.0, chunk.1);
-
-        let entity = commands
-            .spawn((
-                TransformBundle {
-                    local: Transform::from_xyz(chunk_pos.0, 0.0, chunk_pos.1),
-                    ..Default::default()
-                },
-                PendingTerrainChunk(task),
-                VisibilityBundle::default(),
-            ))
-            .id();
-
-        terrain.set_chunk(chunk.0, chunk.1, entity);
     }
 }
 

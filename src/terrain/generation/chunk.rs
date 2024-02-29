@@ -4,20 +4,22 @@ use bevy::{
 };
 use noise::{NoiseFn, SuperSimplex};
 
-use crate::terrain::resources::TerrainGenerationSettings;
+use crate::terrain::resources::GenerationSettings;
 
 pub use super::super::CHUNK_SIZE;
 
 pub struct ChunkGenerator {
     pub resolution: i32,
     pub position: (i32, i32),
-    settings: TerrainGenerationSettings,
+    pub scale: Vec2,
+    settings: GenerationSettings,
 }
 
 impl ChunkGenerator {
-    pub fn new(settings: TerrainGenerationSettings) -> Self {
+    pub fn new(settings: GenerationSettings) -> Self {
         Self {
             settings,
+            scale: Vec2::new(1.0, 1.0),
             position: (0, 0),
             resolution: 1,
         }
@@ -35,7 +37,7 @@ impl ChunkGenerator {
 
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,
-            generate_vertices(position, &noise, &self.settings),
+            generate_vertices(position, &noise, self.scale, &self.settings),
         );
 
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, generate_normals());
@@ -51,7 +53,8 @@ impl ChunkGenerator {
 fn generate_vertices<T: NoiseFn<f64, 2>>(
     position: (f32, f32),
     noise: &T,
-    settings: &TerrainGenerationSettings,
+    scale: Vec2,
+    settings: &GenerationSettings,
 ) -> Vec<[f32; 3]> {
     let mut vertices = Vec::new();
 
@@ -60,8 +63,8 @@ fn generate_vertices<T: NoiseFn<f64, 2>>(
             let x = i as f32;
             let z = j as f32;
 
-            let nx = ((position.0 + x) / settings.scale) as f64;
-            let nz = ((position.1 + z) / settings.scale) as f64;
+            let nx = (((position.0 + x) / settings.scale) as f64) * scale.x as f64;
+            let nz = (((position.1 + z) / settings.scale) as f64) * scale.y as f64;
 
             let g = 2.0f64.powf(-settings.persistence);
             let mut total = 0f64;

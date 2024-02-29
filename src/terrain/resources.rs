@@ -1,12 +1,18 @@
 use bevy::{prelude::*, utils::HashMap};
 
-use super::quad_tree::QuadTree;
+use super::lod_tree::LODTree;
 
 #[derive(Resource, Clone)]
-pub struct TerrainGenerationSettings {
+pub struct TerrainSettings {
     pub material: Handle<StandardMaterial>,
     pub wireframe: bool,
-    pub chunks_radius: u32,
+    pub size: Vec2,
+    pub generation: GenerationSettings,
+    pub lod: LODSettings,
+}
+
+#[derive(Clone)]
+pub struct GenerationSettings {
     pub seed: u32,
     pub amplitude: f64,
     pub scale: f32,
@@ -18,7 +24,14 @@ pub struct TerrainGenerationSettings {
     pub height: f64,
 }
 
-impl FromWorld for TerrainGenerationSettings {
+#[derive(Clone)]
+pub struct LODSettings {
+    pub max: f32,
+    pub layer_penalty: f32,
+    pub min: f32,
+}
+
+impl FromWorld for TerrainSettings {
     fn from_world(world: &mut World) -> Self {
         let mut images = world
             .get_resource_mut::<Assets<Image>>()
@@ -38,17 +51,25 @@ impl FromWorld for TerrainGenerationSettings {
         Self {
             material: debug_material,
             wireframe: false,
-            chunks_radius: 1,
+            size: Vec2::new(500.0, 500.0),
 
-            seed: 100,
-            amplitude: 11.0,
-            scale: 102.0,
-            octaves: 5,
-            lacunarity: 2.6,
-            persistence: 1.3,
-            frequency: 0.11,
-            exponentiation: 1.61,
-            height: 500.0,
+            generation: GenerationSettings {
+                seed: 100,
+                amplitude: 11.0,
+                scale: 102.0,
+                octaves: 5,
+                lacunarity: 2.6,
+                persistence: 1.3,
+                frequency: 0.11,
+                exponentiation: 1.61,
+                height: 500.0,
+            },
+
+            lod: LODSettings {
+                max: 12000.0,
+                layer_penalty: 1600.0,
+                min: 50.0,
+            },
         }
     }
 }
@@ -56,23 +77,22 @@ impl FromWorld for TerrainGenerationSettings {
 #[derive(Resource)]
 pub struct Terrain {
     chunks: HashMap<(i32, i32), Entity>,
-    quad_tree: QuadTree,
+    pub lod_tree: LODTree,
 }
 
-impl Default for Terrain {
-    fn default() -> Self {
+impl FromWorld for Terrain {
+    fn from_world(world: &mut World) -> Self {
+        let settings = world.get_resource::<TerrainSettings>().unwrap();
+        let lod_tree = LODTree::new(4, Rect::from_corners(Vec2::ZERO, settings.size));
+
         Self {
             chunks: HashMap::new(),
-            quad_tree: QuadTree::new(8, Rect::new(-200.0, -200.0, 400.0, 400.0)),
+            lod_tree,
         }
     }
 }
 
 impl Terrain {
-    pub fn quad_tree(&mut self) -> &mut QuadTree {
-        &mut self.quad_tree
-    }
-
     pub fn len(&self) -> usize {
         self.chunks.len()
     }

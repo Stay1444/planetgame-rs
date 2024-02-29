@@ -72,8 +72,8 @@ fn start(mut window: Query<&mut Window, With<PrimaryWindow>>, mut commands: Comm
     commands.spawn((
         Camera3dBundle {
             camera_3d: Camera3d::default(),
-            transform: Transform::from_xyz(10.0, 5.0, 0.0)
-                .looking_at(Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0)),
+            transform: Transform::from_xyz(250.0, 250.0, 250.0)
+                .looking_at(Vec3::ZERO, Vec3::new(250.0, 0.0, 250.0)),
             ..Default::default()
         },
         SpectatorCamera,
