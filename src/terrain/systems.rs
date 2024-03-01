@@ -94,7 +94,7 @@ pub fn update_lod_tree(
 
     process(
         &mut terrain.lod_tree,
-        Vec2::new(player.translation.x, player.translation.z),
+        Vec2::new(250.0, 250.0),
         &settings.lod,
         &mut commands,
         &mut chunk_queue,
@@ -105,9 +105,10 @@ pub fn update_lod_tree(
     for chunk in chunk_queue {
         let target_chunk_size = chunk.1.size();
         let chunk_size = Vec2::new(
-            target_chunk_size.x / CHUNK_SIZE as f32,
-            target_chunk_size.y / CHUNK_SIZE as f32,
+            target_chunk_size.x / (CHUNK_SIZE as f32),
+            target_chunk_size.y / (CHUNK_SIZE as f32),
         );
+
         let task = thread_pool.spawn({
             let chunk = chunk.clone();
             let settings = settings.generation.clone();
@@ -116,14 +117,11 @@ pub fn update_lod_tree(
                 let mut generator = ChunkGenerator::new(settings);
                 generator.resolution = 1;
                 generator.position = chunk.1.min;
-
                 generator.scale = chunk_size;
 
                 generator.generate()
             }
         });
-
-        dbg!(&chunk_size);
 
         commands
             .entity(chunk.0)
@@ -150,7 +148,6 @@ pub fn poll_pending_chunks(
                 .spawn((PbrBundle {
                     mesh,
                     material: settings.material.clone(),
-                    transform: Transform::from_scale(Vec3::new(task.1.x, 1.0, task.1.y)),
                     ..Default::default()
                 },))
                 .id();
