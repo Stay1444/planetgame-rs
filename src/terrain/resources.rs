@@ -65,14 +65,14 @@ impl FromWorld for TerrainSettings {
                 persistence: 1.3,
                 frequency: 0.11,
                 exponentiation: 1.61,
-                height: 500.0,
+                height: 5500.0,
             },
 
             lod: LODSettings {
-                recheck_interval: 0.5,
-                max: 10.0,
-                layer_penalty: 220.0,
-                min: 10.0,
+                recheck_interval: 0.0,
+                max: 2000.0,
+                layer_penalty: 180.0,
+                min: 0.0,
             },
         }
     }
@@ -87,7 +87,7 @@ pub struct Terrain {
 impl FromWorld for Terrain {
     fn from_world(world: &mut World) -> Self {
         let settings = world.get_resource::<TerrainSettings>().unwrap();
-        let lod_tree = LODTree::new(8, Rect::from_corners(Vec2::ZERO, settings.size));
+        let lod_tree = LODTree::new(12, Rect::from_corners(Vec2::ZERO, settings.size));
 
         Self {
             recheck_timer: Timer::new(

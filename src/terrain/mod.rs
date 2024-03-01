@@ -20,7 +20,7 @@ mod lod_tree;
 pub mod resources;
 mod systems;
 
-pub const CHUNK_SIZE: u32 = 128;
+pub const CHUNK_SIZE: u32 = 4;
 
 pub struct TerrainPlugin;
 

@@ -94,7 +94,7 @@ pub fn update_lod_tree(
 
     process(
         &mut terrain.lod_tree,
-        Vec2::new(250.0, 250.0),
+        player.translation.xz(),
         &settings.lod,
         &mut commands,
         &mut chunk_queue,

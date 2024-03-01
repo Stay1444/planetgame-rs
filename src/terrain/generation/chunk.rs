@@ -1,8 +1,11 @@
+use std::thread;
+
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
 };
 use noise::{NoiseFn, SuperSimplex};
+use rand::Rng;
 
 use crate::terrain::resources::GenerationSettings;
 
@@ -61,8 +64,8 @@ fn generate_vertices<T: NoiseFn<f64, 2>>(
             let x = i as f32;
             let z = j as f32;
 
-            let nx = (((position.x + x) / settings.scale) as f64) * scale.x as f64;
-            let nz = (((position.y + z) / settings.scale) as f64) * scale.y as f64;
+            let nx = ((position.x + x * scale.x) * settings.scale) as f64;
+            let nz = ((position.y + z * scale.y) * settings.scale) as f64;
 
             let g = 2.0f64.powf(-settings.persistence);
             let mut total = 0f64;
@@ -87,7 +90,7 @@ fn generate_vertices<T: NoiseFn<f64, 2>>(
                 y = 0.0;
             }
 
-            vertices.push([x, y as f32, z]);
+            vertices.push([x * scale.x, y as f32, z * scale.y]);
         }
     }
 
