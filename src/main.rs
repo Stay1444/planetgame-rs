@@ -59,7 +59,7 @@ fn start(mut window: Query<&mut Window, With<PrimaryWindow>>, mut commands: Comm
             shadows_enabled: true,
             ..Default::default()
         },
-        transform: Transform::from_xyz(500.0, 1000.0, 500.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(500.0, 10000.0, 5000.0).looking_at(Vec3::ZERO, Vec3::Y),
         cascade_shadow_config: CascadeShadowConfigBuilder {
             first_cascade_far_bound: 15.0,
             maximum_distance: 1000.0,

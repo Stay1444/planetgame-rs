@@ -10,7 +10,7 @@ pub use super::super::CHUNK_SIZE;
 
 pub struct ChunkGenerator {
     pub resolution: i32,
-    pub position: (i32, i32),
+    pub position: Vec2,
     pub scale: Vec2,
     settings: GenerationSettings,
 }
@@ -20,7 +20,7 @@ impl ChunkGenerator {
         Self {
             settings,
             scale: Vec2::new(1.0, 1.0),
-            position: (0, 0),
+            position: Vec2::ZERO,
             resolution: 1,
         }
     }
@@ -33,11 +33,9 @@ impl ChunkGenerator {
 
         let noise = SuperSimplex::new(self.settings.seed);
 
-        let position = super::chunk_to_global_position(self.position.0, self.position.1);
-
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,
-            generate_vertices(position, &noise, self.scale, &self.settings),
+            generate_vertices(self.position, &noise, self.scale, &self.settings),
         );
 
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, generate_normals());
@@ -51,7 +49,7 @@ impl ChunkGenerator {
 }
 
 fn generate_vertices<T: NoiseFn<f64, 2>>(
-    position: (f32, f32),
+    position: Vec2,
     noise: &T,
     scale: Vec2,
     settings: &GenerationSettings,
@@ -63,8 +61,8 @@ fn generate_vertices<T: NoiseFn<f64, 2>>(
             let x = i as f32;
             let z = j as f32;
 
-            let nx = (((position.0 + x) / settings.scale) as f64) * scale.x as f64;
-            let nz = (((position.1 + z) / settings.scale) as f64) * scale.y as f64;
+            let nx = (((position.x + x) / settings.scale) as f64) * scale.x as f64;
+            let nz = (((position.y + z) / settings.scale) as f64) * scale.y as f64;
 
             let g = 2.0f64.powf(-settings.persistence);
             let mut total = 0f64;

@@ -1,4 +1,6 @@
-use bevy::{prelude::*, utils::HashMap};
+use std::time::Duration;
+
+use bevy::prelude::*;
 
 use super::lod_tree::LODTree;
 
@@ -26,6 +28,7 @@ pub struct GenerationSettings {
 
 #[derive(Clone)]
 pub struct LODSettings {
+    pub recheck_interval: f32,
     pub max: f32,
     pub layer_penalty: f32,
     pub min: f32,
@@ -51,7 +54,7 @@ impl FromWorld for TerrainSettings {
         Self {
             material: debug_material,
             wireframe: false,
-            size: Vec2::new(500.0, 500.0),
+            size: Vec2::new(500000.0, 500000.0),
 
             generation: GenerationSettings {
                 seed: 100,
@@ -66,9 +69,10 @@ impl FromWorld for TerrainSettings {
             },
 
             lod: LODSettings {
-                max: 12000.0,
-                layer_penalty: 1600.0,
-                min: 50.0,
+                recheck_interval: 0.5,
+                max: 10.0,
+                layer_penalty: 220.0,
+                min: 10.0,
             },
         }
     }
@@ -76,46 +80,21 @@ impl FromWorld for TerrainSettings {
 
 #[derive(Resource)]
 pub struct Terrain {
-    chunks: HashMap<(i32, i32), Entity>,
+    pub recheck_timer: Timer,
     pub lod_tree: LODTree,
 }
 
 impl FromWorld for Terrain {
     fn from_world(world: &mut World) -> Self {
         let settings = world.get_resource::<TerrainSettings>().unwrap();
-        let lod_tree = LODTree::new(4, Rect::from_corners(Vec2::ZERO, settings.size));
+        let lod_tree = LODTree::new(8, Rect::from_corners(Vec2::ZERO, settings.size));
 
         Self {
-            chunks: HashMap::new(),
+            recheck_timer: Timer::new(
+                Duration::from_secs_f32(settings.lod.recheck_interval),
+                TimerMode::Repeating,
+            ),
             lod_tree,
         }
-    }
-}
-
-impl Terrain {
-    pub fn len(&self) -> usize {
-        self.chunks.len()
-    }
-
-    pub fn get_chunk(&self, x: i32, z: i32) -> Option<Entity> {
-        self.chunks.get(&(x, z)).cloned()
-    }
-
-    pub fn set_chunk(&mut self, x: i32, z: i32, entity: Entity) {
-        self.chunks.insert((x, z), entity);
-    }
-
-    pub fn remove_chunk(&mut self, x: i32, z: i32) {
-        self.chunks.remove(&(x, z));
-    }
-
-    pub fn chunks(&self) -> Vec<(i32, i32, Entity)> {
-        let mut chunks = Vec::new();
-
-        for (k, v) in self.chunks.iter() {
-            chunks.push((k.0, k.1, v.clone()));
-        }
-
-        chunks
     }
 }

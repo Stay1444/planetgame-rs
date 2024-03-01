@@ -1,11 +1,22 @@
-use bevy_math::Rect;
+use bevy::ecs::entity::Entity;
+use bevy_math::{Rect, Vec2};
+
+use super::resources::LODSettings;
 
 #[derive(Default, Clone, Debug)]
 pub struct LODTree {
-    depth: usize,
-    boundary: Rect,
-    max_depth: usize,
-    children: Option<Box<[LODTree; 4]>>,
+    pub depth: usize,
+    pub boundary: Rect,
+    pub max_depth: usize,
+    pub leaf: LODLeaf,
+}
+
+#[derive(Default, Clone, Debug)]
+pub enum LODLeaf {
+    Children(Box<[LODTree; 4]>),
+    Chunk(Entity),
+    #[default]
+    Pending,
 }
 
 impl LODTree {
@@ -14,20 +25,8 @@ impl LODTree {
             depth: 0,
             max_depth,
             boundary,
-            children: None,
+            leaf: LODLeaf::Pending,
         }
-    }
-
-    pub fn boundary(&self) -> Rect {
-        self.boundary
-    }
-
-    pub fn children(&self) -> Option<&Box<[LODTree; 4]>> {
-        self.children.as_ref()
-    }
-
-    pub fn children_mut(&mut self) -> Option<&mut Box<[LODTree; 4]>> {
-        self.children.as_mut()
     }
 
     fn new_child(boundary: Rect, max_depth: usize, depth: usize) -> Self {
@@ -35,17 +34,21 @@ impl LODTree {
             boundary,
             depth,
             max_depth,
-            children: None,
+            leaf: LODLeaf::Pending,
         }
     }
 
-    pub fn subdivide(&mut self) -> bool {
-        if self.depth >= self.max_depth || self.children.is_some() {
+    pub fn collapse(&mut self) -> bool {
+        if self.depth >= self.max_depth {
+            return false;
+        }
+
+        if let LODLeaf::Children(_) = self.leaf {
             return false;
         }
 
         let rects = subdivide_rect(self.boundary);
-        self.children = Some(Box::new([
+        self.leaf = LODLeaf::Children(Box::new([
             LODTree::new_child(rects.0, self.max_depth, self.depth + 1),
             LODTree::new_child(rects.1, self.max_depth, self.depth + 1),
             LODTree::new_child(rects.2, self.max_depth, self.depth + 1),
@@ -55,8 +58,40 @@ impl LODTree {
         return true;
     }
 
-    pub fn clear(&mut self) {
-        self.children = None;
+    pub fn should_collapse(&self, settings: &LODSettings, point: Vec2) -> bool {
+        let distance = f32::max(
+            settings.max + -(self.depth as f32) * settings.layer_penalty,
+            settings.min,
+        );
+
+        self.boundary.center().distance_squared(point) / (self.boundary.size().length() * 100.0)
+            < distance
+    }
+
+    pub fn can_collapse(&self) -> bool {
+        if self.depth >= self.max_depth {
+            return false;
+        }
+
+        if let LODLeaf::Children(_) = self.leaf {
+            return false;
+        }
+
+        return true;
+    }
+
+    pub fn get_child_chunks_recursive(&self, out: &mut Vec<Entity>) {
+        match &self.leaf {
+            LODLeaf::Children(children) => {
+                for child in children.iter() {
+                    child.get_child_chunks_recursive(out);
+                }
+            }
+            LODLeaf::Chunk(entity) => {
+                out.push(entity.clone());
+            }
+            LODLeaf::Pending => (),
+        }
     }
 }
 

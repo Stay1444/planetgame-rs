@@ -1,12 +1,17 @@
 use bevy::{
     pbr::wireframe::Wireframe,
     prelude::*,
-    tasks::{block_on, futures_lite::future},
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool},
 };
 
 use crate::{
     spectator::components::SpectatorCamera,
-    terrain::{lod_tree::LODTree, resources::LODSettings},
+    terrain::{
+        generation::ChunkGenerator,
+        lod_tree::{LODLeaf, LODTree},
+        resources::LODSettings,
+        CHUNK_SIZE,
+    },
 };
 
 use super::{
@@ -16,40 +21,114 @@ use super::{
 
 pub fn update_lod_tree(
     mut terrain: ResMut<Terrain>,
+    mut commands: Commands,
     player: Query<&Transform, With<SpectatorCamera>>,
     settings: Res<TerrainSettings>,
+    time: Res<Time>,
 ) {
+    terrain.recheck_timer.tick(time.delta());
+    if !terrain.recheck_timer.finished() {
+        return;
+    }
+
     let Ok(player) = player.get_single() else {
         return;
     };
 
-    terrain.lod_tree.clear();
+    fn process(
+        tree: &mut LODTree,
+        player: Vec2,
+        settings: &LODSettings,
+        commands: &mut Commands,
+        chunk_queue: &mut Vec<(Entity, Rect)>,
+    ) {
+        match &tree.leaf {
+            LODLeaf::Children(_) => {
+                if !tree.should_collapse(settings, player) {
+                    let mut cchunks = Vec::new();
+                    tree.get_child_chunks_recursive(&mut cchunks);
+                    for chunk in cchunks {
+                        commands.entity(chunk).insert(DeletedTerrainChunk);
+                    }
+                    tree.leaf = LODLeaf::Pending;
+                }
+            }
+            LODLeaf::Chunk(entity) => {
+                if tree.should_collapse(settings, player) && tree.can_collapse() {
+                    commands.entity(entity.clone()).insert(DeletedTerrainChunk);
+                    assert!(tree.collapse());
+                }
+            }
+            LODLeaf::Pending => {
+                if tree.should_collapse(settings, player) && tree.can_collapse() {
+                    tree.collapse();
+                } else {
+                    let entity = commands
+                        .spawn((
+                            TransformBundle {
+                                local: Transform::from_xyz(
+                                    tree.boundary.min.x,
+                                    0.0,
+                                    tree.boundary.min.y,
+                                ),
+                                ..Default::default()
+                            },
+                            VisibilityBundle::default(),
+                        ))
+                        .id();
 
-    fn process(tree: &mut LODTree, player: Vec2, mut layer: usize, settings: &LODSettings) {
-        let distance = f32::max(
-            settings.max + -(layer as f32) * settings.layer_penalty,
-            settings.min,
-        );
-
-        if tree.boundary().center().distance_squared(player) / 100.0 < distance {
-            tree.subdivide();
+                    tree.leaf = LODLeaf::Chunk(entity.clone());
+                    chunk_queue.push((entity, tree.boundary));
+                }
+            }
         }
 
-        layer += 1;
-
-        if let Some(children) = tree.children_mut() {
+        if let LODLeaf::Children(children) = &mut tree.leaf {
             for child in children.iter_mut() {
-                process(child, player, layer, settings);
+                process(child, player, settings, commands, chunk_queue);
             }
         }
     }
 
+    let mut chunk_queue = Vec::new();
+
     process(
         &mut terrain.lod_tree,
         Vec2::new(player.translation.x, player.translation.z),
-        0,
         &settings.lod,
+        &mut commands,
+        &mut chunk_queue,
     );
+
+    let thread_pool = AsyncComputeTaskPool::get();
+
+    for chunk in chunk_queue {
+        let target_chunk_size = chunk.1.size();
+        let chunk_size = Vec2::new(
+            target_chunk_size.x / CHUNK_SIZE as f32,
+            target_chunk_size.y / CHUNK_SIZE as f32,
+        );
+        let task = thread_pool.spawn({
+            let chunk = chunk.clone();
+            let settings = settings.generation.clone();
+
+            async move {
+                let mut generator = ChunkGenerator::new(settings);
+                generator.resolution = 1;
+                generator.position = chunk.1.min;
+
+                generator.scale = chunk_size;
+
+                generator.generate()
+            }
+        });
+
+        dbg!(&chunk_size);
+
+        commands
+            .entity(chunk.0)
+            .insert(PendingTerrainChunk(task, chunk_size));
+    }
 }
 
 pub fn poll_pending_chunks(
@@ -63,12 +142,15 @@ pub fn poll_pending_chunks(
             let mesh = meshes.add(mesh);
 
             commands.entity(entity).remove::<PendingTerrainChunk>();
-            commands.entity(entity).insert(TerrainChunk(mesh.clone()));
+            commands
+                .entity(entity)
+                .insert(TerrainChunk(mesh.clone(), task.1));
 
             let child = commands
                 .spawn((PbrBundle {
                     mesh,
                     material: settings.material.clone(),
+                    transform: Transform::from_scale(Vec3::new(task.1.x, 1.0, task.1.y)),
                     ..Default::default()
                 },))
                 .id();
@@ -83,18 +165,10 @@ pub fn poll_pending_chunks(
 }
 
 pub fn process_marked_for_deletion(
-    mut terrain: ResMut<Terrain>,
-    chunks: Query<(Entity, &Transform), (With<DeletedTerrainChunk>, Without<PendingTerrainChunk>)>,
+    chunks: Query<Entity, (With<DeletedTerrainChunk>, Without<PendingTerrainChunk>)>,
     mut commands: Commands,
 ) {
-    for (entity, transform) in &chunks {
-        let position = super::generation::global_to_chunk_position(
-            transform.translation.x,
-            transform.translation.z,
-        );
-
-        terrain.remove_chunk(position.0, position.1);
-
+    for entity in &chunks {
         commands.entity(entity).despawn_recursive();
     }
 }

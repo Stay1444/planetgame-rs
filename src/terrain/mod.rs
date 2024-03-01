@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use egui::{
@@ -5,12 +7,12 @@ use egui::{
     Stroke,
 };
 
-use crate::{spectator::components::SpectatorCamera, terrain::lod_tree::LODTree};
-
-use self::{
-    components::DeletedTerrainChunk,
-    resources::{Terrain, TerrainSettings},
+use crate::{
+    spectator::components::SpectatorCamera,
+    terrain::lod_tree::{LODLeaf, LODTree},
 };
+
+use self::resources::{Terrain, TerrainSettings};
 
 pub mod components;
 mod generation;
@@ -36,10 +38,9 @@ impl Plugin for TerrainPlugin {
 
 fn terrain_ui(
     mut contexts: EguiContexts,
-    terrain: Res<Terrain>,
+    mut terrain: ResMut<Terrain>,
     mut settings: ResMut<TerrainSettings>,
     player: Query<&Transform, With<SpectatorCamera>>,
-    mut commands: Commands,
 ) {
     let Ok(player) = player.get_single() else {
         return;
@@ -50,8 +51,6 @@ fn terrain_ui(
         CollapsingHeader::new("Information")
             .default_open(true)
             .show(ui, |ui| {
-                ui.label(format!("Loaded Chunks: {}", terrain.len()));
-
                 if ui
                     .add(Checkbox::new(&mut settings.wireframe, "Wireframe"))
                     .changed()
@@ -167,8 +166,24 @@ fn terrain_ui(
         CollapsingHeader::new("LOD Tree")
             .default_open(true)
             .show(ui, |ui| {
-                ui.add(Slider::new(&mut settings.lod.max, 100.0..=1000.0).text("Max"));
-                ui.add(Slider::new(&mut settings.lod.min, 0.0..=2500.0).text("Min"));
+                if ui
+                    .add(
+                        Slider::new(&mut settings.lod.recheck_interval, 0.0..=5.0)
+                            .text("Validate Interval"),
+                    )
+                    .changed()
+                {
+                    terrain.recheck_timer = Timer::new(
+                        Duration::from_secs_f32(settings.lod.recheck_interval),
+                        TimerMode::Repeating,
+                    );
+                }
+                ui.add(Slider::new(&mut settings.lod.max, 10.0..=2000.0).text("Max"));
+                ui.add(
+                    Slider::new(&mut settings.lod.min, 0.0..=200.0)
+                        .step_by(2.0)
+                        .text("Min"),
+                );
                 ui.add(
                     Slider::new(&mut settings.lod.layer_penalty, 10.0..=500.0)
                         .text("Layer Penalty"),
@@ -188,7 +203,7 @@ fn terrain_ui(
                         transform: &RectTransform,
                         painter: &egui::Painter,
                     ) {
-                        let tree_rect = tree.boundary();
+                        let tree_rect = tree.boundary;
 
                         let points = vec![
                             transform * Pos2::new(tree_rect.min.x, tree_rect.min.y),
@@ -203,13 +218,26 @@ fn terrain_ui(
                             Stroke::new(1.0, Color32::from_rgb(255, 255, 255)),
                         )]);
 
-                        if let Some(children) = tree.children() {
+                        painter.extend(vec![Shape::rect_filled(
+                            egui::Rect::from_min_max(
+                                transform * Pos2::new(tree_rect.min.x, tree_rect.min.y),
+                                transform * Pos2::new(tree_rect.max.x, tree_rect.max.y),
+                            ),
+                            0.0,
+                            match &tree.leaf {
+                                LODLeaf::Children(_) => Color32::from_rgb(255, 255, 255),
+                                LODLeaf::Chunk(_) => Color32::from_rgb(118, 220, 118),
+                                LODLeaf::Pending => Color32::from_rgb(167, 198, 231),
+                            },
+                        )]);
+
+                        if let LODLeaf::Children(children) = &tree.leaf {
                             for child in children.iter() {
                                 draw_tree(child, transform, painter);
                             }
                         }
                     }
-                    let tree_rect = terrain.lod_tree.boundary();
+                    let tree_rect = terrain.lod_tree.boundary;
                     let tree_size = egui::Rect::from_min_size(
                         Pos2::new(tree_rect.min.x, tree_rect.min.y),
                         egui::Vec2::new(tree_rect.max.x, tree_rect.max.y),
@@ -235,10 +263,4 @@ fn terrain_ui(
                 });
             });
     });
-
-    if regenerate {
-        for chunk in terrain.chunks() {
-            commands.entity(chunk.2).insert(DeletedTerrainChunk);
-        }
-    }
 }
