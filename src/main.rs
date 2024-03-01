@@ -49,7 +49,7 @@ fn main() {
 
 fn start(mut window: Query<&mut Window, With<PrimaryWindow>>, mut commands: Commands) {
     if let Ok(mut window) = window.get_single_mut() {
-        window.cursor.grab_mode = CursorGrabMode::Confined;
+        window.cursor.grab_mode = CursorGrabMode::Locked;
         window.cursor.visible = false;
         window.set_maximized(true);
     }
@@ -59,7 +59,7 @@ fn start(mut window: Query<&mut Window, With<PrimaryWindow>>, mut commands: Comm
             shadows_enabled: true,
             ..Default::default()
         },
-        transform: Transform::from_xyz(500.0, 1000.0, 500.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(500.0, 10000.0, 5000.0).looking_at(Vec3::ZERO, Vec3::Y),
         cascade_shadow_config: CascadeShadowConfigBuilder {
             first_cascade_far_bound: 15.0,
             maximum_distance: 1000.0,
@@ -72,8 +72,8 @@ fn start(mut window: Query<&mut Window, With<PrimaryWindow>>, mut commands: Comm
     commands.spawn((
         Camera3dBundle {
             camera_3d: Camera3d::default(),
-            transform: Transform::from_xyz(10.0, 5.0, 0.0)
-                .looking_at(Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0)),
+            transform: Transform::from_xyz(250.0, 250.0, 250.0)
+                .looking_at(Vec3::ZERO, Vec3::new(250.0, 0.0, 250.0)),
             ..Default::default()
         },
         SpectatorCamera,

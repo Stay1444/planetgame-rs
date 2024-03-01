@@ -1,12 +1,20 @@
-use bevy::{prelude::*, utils::HashMap};
+use std::time::Duration;
 
-use super::quad_tree::QuadTree;
+use bevy::prelude::*;
+
+use super::{lod_tree::LODTree, TerrainMaterial};
 
 #[derive(Resource, Clone)]
-pub struct TerrainGenerationSettings {
-    pub material: Handle<StandardMaterial>,
+pub struct TerrainSettings {
+    pub material: Handle<TerrainMaterial>,
     pub wireframe: bool,
-    pub chunks_radius: u32,
+    pub size: Vec2,
+    pub generation: GenerationSettings,
+    pub lod: LODSettings,
+}
+
+#[derive(Clone)]
+pub struct GenerationSettings {
     pub seed: u32,
     pub amplitude: f64,
     pub scale: f32,
@@ -18,84 +26,69 @@ pub struct TerrainGenerationSettings {
     pub height: f64,
 }
 
-impl FromWorld for TerrainGenerationSettings {
+#[derive(Clone)]
+pub struct LODSettings {
+    pub recheck_interval: f32,
+    pub max: f32,
+    pub layer_penalty: f32,
+    pub min: f32,
+}
+
+impl FromWorld for TerrainSettings {
     fn from_world(world: &mut World) -> Self {
-        let mut images = world
-            .get_resource_mut::<Assets<Image>>()
-            .expect("Image Assets");
-
-        let texture = images.add(crate::uv_debug_texture());
-
         let mut materials = world
-            .get_resource_mut::<Assets<StandardMaterial>>()
-            .expect("StandardMaterial Assets");
+            .get_resource_mut::<Assets<TerrainMaterial>>()
+            .expect("TerrainMaterial Assets");
 
-        let debug_material = materials.add(StandardMaterial {
-            base_color_texture: Some(texture),
-            ..default()
+        let mat = materials.add(TerrainMaterial {
+            color: Color::RED,
+            alpha_mode: AlphaMode::Blend,
         });
 
         Self {
-            material: debug_material,
+            material: mat,
             wireframe: false,
-            chunks_radius: 1,
+            size: Vec2::new(50000.0, 50000.0),
 
-            seed: 100,
-            amplitude: 11.0,
-            scale: 102.0,
-            octaves: 5,
-            lacunarity: 2.6,
-            persistence: 1.3,
-            frequency: 0.11,
-            exponentiation: 1.61,
-            height: 500.0,
+            generation: GenerationSettings {
+                seed: 100,
+                amplitude: 0.01,
+                scale: 0.005,
+                octaves: 16,
+                lacunarity: 1.7,
+                persistence: 0.7,
+                frequency: 0.11,
+                exponentiation: 0.81,
+                height: 550.0,
+            },
+
+            lod: LODSettings {
+                recheck_interval: 0.0,
+                max: 2000.0,
+                layer_penalty: 300.0,
+                min: 56.0,
+            },
         }
     }
 }
 
 #[derive(Resource)]
 pub struct Terrain {
-    chunks: HashMap<(i32, i32), Entity>,
-    quad_tree: QuadTree,
+    pub recheck_timer: Timer,
+    pub lod_tree: LODTree,
 }
 
-impl Default for Terrain {
-    fn default() -> Self {
+impl FromWorld for Terrain {
+    fn from_world(world: &mut World) -> Self {
+        let settings = world.get_resource::<TerrainSettings>().unwrap();
+        let lod_tree = LODTree::new(12, Rect::from_corners(Vec2::ZERO, settings.size));
+
         Self {
-            chunks: HashMap::new(),
-            quad_tree: QuadTree::new(8, Rect::new(-200.0, -200.0, 400.0, 400.0)),
+            recheck_timer: Timer::new(
+                Duration::from_secs_f32(settings.lod.recheck_interval),
+                TimerMode::Repeating,
+            ),
+            lod_tree,
         }
-    }
-}
-
-impl Terrain {
-    pub fn quad_tree(&mut self) -> &mut QuadTree {
-        &mut self.quad_tree
-    }
-
-    pub fn len(&self) -> usize {
-        self.chunks.len()
-    }
-
-    pub fn get_chunk(&self, x: i32, z: i32) -> Option<Entity> {
-        self.chunks.get(&(x, z)).cloned()
-    }
-
-    pub fn set_chunk(&mut self, x: i32, z: i32, entity: Entity) {
-        self.chunks.insert((x, z), entity);
-    }
-
-    pub fn remove_chunk(&mut self, x: i32, z: i32) {
-        self.chunks.remove(&(x, z));
-    }
-
-    pub fn chunks(&self) -> Vec<(i32, i32, Entity)> {
-        let mut chunks = Vec::new();
-
-        for (k, v) in self.chunks.iter() {
-            chunks.push((k.0, k.1, v.clone()));
-        }
-
-        chunks
     }
 }
