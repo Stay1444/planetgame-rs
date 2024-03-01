@@ -54,7 +54,7 @@ pub fn handle_mouse_lock(
             window.cursor.grab_mode = CursorGrabMode::None;
             window.cursor.visible = true;
         } else {
-            window.cursor.grab_mode = CursorGrabMode::Confined;
+            window.cursor.grab_mode = CursorGrabMode::Locked;
             window.cursor.visible = false;
         }
     }
