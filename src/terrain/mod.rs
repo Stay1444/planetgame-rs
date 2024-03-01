@@ -12,7 +12,10 @@ use crate::{
     terrain::lod_tree::{LODLeaf, LODTree},
 };
 
-use self::resources::{Terrain, TerrainSettings};
+use self::{
+    components::DeletedTerrainChunk,
+    resources::{Terrain, TerrainSettings},
+};
 
 pub mod components;
 mod generation;
@@ -41,6 +44,7 @@ fn terrain_ui(
     mut terrain: ResMut<Terrain>,
     mut settings: ResMut<TerrainSettings>,
     player: Query<&Transform, With<SpectatorCamera>>,
+    mut commands: Commands,
 ) {
     let Ok(player) = player.get_single() else {
         return;
@@ -86,11 +90,7 @@ fn terrain_ui(
                 }
 
                 if ui
-                    .add(
-                        Slider::new(&mut settings.scale, 0.01..=200.0)
-                            .text("Scale")
-                            .step_by(0.05),
-                    )
+                    .add(Slider::new(&mut settings.scale, 0.001..=1.0).text("Scale"))
                     .changed()
                 {
                     regenerate = true;
@@ -98,7 +98,7 @@ fn terrain_ui(
 
                 if ui
                     .add(
-                        Slider::new(&mut settings.octaves, 0..=5)
+                        Slider::new(&mut settings.octaves, 0..=10)
                             .text("Octaves")
                             .step_by(1.0),
                     )
@@ -109,7 +109,7 @@ fn terrain_ui(
 
                 if ui
                     .add(
-                        Slider::new(&mut settings.lacunarity, 0.0..=6.0)
+                        Slider::new(&mut settings.lacunarity, 0.0..=5.0)
                             .text("Lacunarity")
                             .step_by(0.05),
                     )
@@ -120,7 +120,7 @@ fn terrain_ui(
 
                 if ui
                     .add(
-                        Slider::new(&mut settings.persistence, 0.0..=10.0)
+                        Slider::new(&mut settings.persistence, 0.0..=1.0)
                             .text("Persistence")
                             .step_by(0.05),
                     )
@@ -131,7 +131,7 @@ fn terrain_ui(
 
                 if ui
                     .add(
-                        Slider::new(&mut settings.frequency, 0.01..=10.0)
+                        Slider::new(&mut settings.frequency, 0.01..=1.0)
                             .text("Frequency")
                             .step_by(0.05),
                     )
@@ -142,7 +142,7 @@ fn terrain_ui(
 
                 if ui
                     .add(
-                        Slider::new(&mut settings.exponentiation, 0.01..=10.0)
+                        Slider::new(&mut settings.exponentiation, 0.01..=3.0)
                             .text("Exponentiation")
                             .step_by(0.05),
                     )
@@ -213,11 +213,6 @@ fn terrain_ui(
                             transform * Pos2::new(tree_rect.min.x, tree_rect.min.y),
                         ];
 
-                        painter.extend(vec![Shape::line(
-                            points,
-                            Stroke::new(1.0, Color32::from_rgb(255, 255, 255)),
-                        )]);
-
                         painter.extend(vec![Shape::rect_filled(
                             egui::Rect::from_min_max(
                                 transform * Pos2::new(tree_rect.min.x, tree_rect.min.y),
@@ -229,6 +224,11 @@ fn terrain_ui(
                                 LODLeaf::Chunk(_) => Color32::from_rgb(118, 220, 118),
                                 LODLeaf::Pending => Color32::from_rgb(167, 198, 231),
                             },
+                        )]);
+
+                        painter.extend(vec![Shape::line(
+                            points,
+                            Stroke::new(1.5, Color32::from_rgb(255, 255, 255)),
                         )]);
 
                         if let LODLeaf::Children(children) = &tree.leaf {
@@ -262,5 +262,15 @@ fn terrain_ui(
                     response
                 });
             });
+
+        if regenerate {
+            let mut chunks = Vec::new();
+            terrain.lod_tree.get_child_chunks_recursive(&mut chunks);
+            for chunk in chunks {
+                commands.entity(chunk).insert(DeletedTerrainChunk);
+            }
+
+            terrain.lod_tree.leaf = LODLeaf::default();
+        }
     });
 }

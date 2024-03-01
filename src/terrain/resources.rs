@@ -54,25 +54,25 @@ impl FromWorld for TerrainSettings {
         Self {
             material: debug_material,
             wireframe: false,
-            size: Vec2::new(500000.0, 500000.0),
+            size: Vec2::new(50000.0, 50000.0),
 
             generation: GenerationSettings {
                 seed: 100,
-                amplitude: 11.0,
-                scale: 102.0,
-                octaves: 5,
-                lacunarity: 2.6,
-                persistence: 1.3,
+                amplitude: 0.01,
+                scale: 0.005,
+                octaves: 16,
+                lacunarity: 1.7,
+                persistence: 0.7,
                 frequency: 0.11,
-                exponentiation: 1.61,
-                height: 5500.0,
+                exponentiation: 0.81,
+                height: 550.0,
             },
 
             lod: LODSettings {
                 recheck_interval: 0.0,
                 max: 2000.0,
-                layer_penalty: 180.0,
-                min: 0.0,
+                layer_penalty: 300.0,
+                min: 56.0,
             },
         }
     }
