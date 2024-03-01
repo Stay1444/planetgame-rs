@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::render_resource::AsBindGroup};
 use bevy_egui::EguiContexts;
 use egui::{
     emath::RectTransform, Checkbox, CollapsingHeader, Color32, Frame, Pos2, Sense, Shape, Slider,
@@ -29,14 +29,37 @@ pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(MaterialPlugin::<TerrainMaterial>::default());
         app.init_resource::<resources::TerrainSettings>();
         app.init_resource::<resources::Terrain>();
+
         app.add_systems(PreUpdate, systems::update_lod_tree);
         app.add_systems(Update, systems::poll_pending_chunks);
         app.add_systems(Update, systems::process_marked_for_deletion);
 
         app.add_systems(Update, terrain_ui);
     }
+}
+
+impl Material for TerrainMaterial {
+    fn fragment_shader() -> bevy::render::render_resource::ShaderRef {
+        "shaders/terrain/fragment.wgsl".into()
+    }
+
+    fn vertex_shader() -> bevy::render::render_resource::ShaderRef {
+        "shaders/terrain/vertex.wgsl".into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
+    }
+}
+
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+pub struct TerrainMaterial {
+    #[uniform(0)]
+    pub color: Color,
+    pub alpha_mode: AlphaMode,
 }
 
 fn terrain_ui(

@@ -145,9 +145,10 @@ pub fn poll_pending_chunks(
                 .insert(TerrainChunk(mesh.clone(), task.1));
 
             let child = commands
-                .spawn((PbrBundle {
+                .spawn((MaterialMeshBundle {
                     mesh,
                     material: settings.material.clone(),
+                    transform: Transform::from_scale(Vec3::new(task.1.x, 1.0, task.1.y)),
                     ..Default::default()
                 },))
                 .id();

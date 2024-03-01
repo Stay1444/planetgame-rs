@@ -2,11 +2,11 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 
-use super::lod_tree::LODTree;
+use super::{lod_tree::LODTree, TerrainMaterial};
 
 #[derive(Resource, Clone)]
 pub struct TerrainSettings {
-    pub material: Handle<StandardMaterial>,
+    pub material: Handle<TerrainMaterial>,
     pub wireframe: bool,
     pub size: Vec2,
     pub generation: GenerationSettings,
@@ -36,23 +36,17 @@ pub struct LODSettings {
 
 impl FromWorld for TerrainSettings {
     fn from_world(world: &mut World) -> Self {
-        let mut images = world
-            .get_resource_mut::<Assets<Image>>()
-            .expect("Image Assets");
-
-        let texture = images.add(crate::uv_debug_texture());
-
         let mut materials = world
-            .get_resource_mut::<Assets<StandardMaterial>>()
-            .expect("StandardMaterial Assets");
+            .get_resource_mut::<Assets<TerrainMaterial>>()
+            .expect("TerrainMaterial Assets");
 
-        let debug_material = materials.add(StandardMaterial {
-            base_color_texture: Some(texture),
-            ..default()
+        let mat = materials.add(TerrainMaterial {
+            color: Color::RED,
+            alpha_mode: AlphaMode::Blend,
         });
 
         Self {
-            material: debug_material,
+            material: mat,
             wireframe: false,
             size: Vec2::new(50000.0, 50000.0),
 

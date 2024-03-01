@@ -90,7 +90,7 @@ fn generate_vertices<T: NoiseFn<f64, 2>>(
                 y = 0.0;
             }
 
-            vertices.push([x * scale.x, y as f32, z * scale.y]);
+            vertices.push([x, y as f32, z]);
         }
     }
 
