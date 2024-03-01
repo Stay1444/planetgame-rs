@@ -49,7 +49,7 @@ fn main() {
 
 fn start(mut window: Query<&mut Window, With<PrimaryWindow>>, mut commands: Commands) {
     if let Ok(mut window) = window.get_single_mut() {
-        window.cursor.grab_mode = CursorGrabMode::Confined;
+        window.cursor.grab_mode = CursorGrabMode::Locked;
         window.cursor.visible = false;
         window.set_maximized(true);
     }
