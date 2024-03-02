@@ -46,10 +46,6 @@ impl Material for TerrainMaterial {
         "shaders/terrain/fragment.wgsl".into()
     }
 
-    fn vertex_shader() -> bevy::render::render_resource::ShaderRef {
-        "shaders/terrain/vertex.wgsl".into()
-    }
-
     fn alpha_mode(&self) -> AlphaMode {
         self.alpha_mode
     }

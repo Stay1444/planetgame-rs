@@ -59,8 +59,8 @@ fn generate_vertices<T: NoiseFn<f64, 2>>(
 ) -> Vec<[f32; 3]> {
     let mut vertices = Vec::new();
 
-    for i in 0..CHUNK_SIZE + 2 {
-        for j in 0..CHUNK_SIZE + 2 {
+    for i in 0..CHUNK_SIZE + 1 {
+        for j in 0..CHUNK_SIZE + 1 {
             let x = i as f32;
             let z = j as f32;
 
@@ -100,8 +100,8 @@ fn generate_vertices<T: NoiseFn<f64, 2>>(
 fn generate_indices() -> Vec<u32> {
     let mut indices = Vec::new();
 
-    let width = CHUNK_SIZE + 2;
-    let height = CHUNK_SIZE + 2;
+    let width = CHUNK_SIZE + 1;
+    let height = CHUNK_SIZE + 1;
 
     for i in 0..width - 1 {
         for j in 0..height - 1 {
@@ -126,8 +126,8 @@ fn generate_indices() -> Vec<u32> {
 fn generate_normals() -> Vec<[f32; 3]> {
     let mut normals = Vec::new();
 
-    let width = CHUNK_SIZE + 2;
-    let height = CHUNK_SIZE + 2;
+    let width = CHUNK_SIZE + 1;
+    let height = CHUNK_SIZE + 1;
 
     for _ in 0..width {
         for _ in 0..height {
@@ -139,8 +139,8 @@ fn generate_normals() -> Vec<[f32; 3]> {
 
 fn generate_uvs() -> Vec<[f32; 2]> {
     let mut uvs = Vec::new();
-    let width = CHUNK_SIZE + 2;
-    let height = CHUNK_SIZE + 2;
+    let width = CHUNK_SIZE + 1;
+    let height = CHUNK_SIZE + 1;
     for i in 0..width {
         for j in 0..height {
             let u = j as f32 / (width - 1) as f32; // Normalize to [0, 1]
